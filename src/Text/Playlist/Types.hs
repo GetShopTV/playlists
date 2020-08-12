@@ -20,7 +20,7 @@ module Text.Playlist.Types where
 --------------------------------------------------------------------------------
 import qualified Data.Foldable            as F
 import           Data.List                (find)
-import           Data.Maybe               (catMaybes)
+import           Data.Maybe               (catMaybes, fromMaybe)
 import           Data.Ord                 (comparing)
 import           Data.String              (IsString)
 import           Data.Text                (Text)
@@ -35,7 +35,7 @@ newtype TagName = TagName { getTagName :: Text }
 
 data Tag = Tag
   { tagName  :: TagName
-  , tagValue :: Text
+  , tagValue :: Maybe Text
   } deriving (Eq, Ord, Show)
 
 lookupTag :: TagName -> [Tag] -> Maybe Tag
@@ -71,14 +71,16 @@ trackParseTags track@Track{..} = track
 parseEXT_X_PROGRAM_DATETIME :: [Tag] -> Maybe ZonedTime
 parseEXT_X_PROGRAM_DATETIME tags = do
   Tag{..} <- lookupTag "#EXT-X-PROGRAM-DATE-TIME" tags
-  iso8601ParseM (Text.unpack tagValue)
+  iso8601ParseM (maybe "" Text.unpack tagValue)
 
 parseEXTINF :: [Tag] -> Maybe (Float, Text)
 parseEXTINF tags = do
   Tag{..} <- lookupTag "#EXTINF" tags
-  let (before, after) = Text.break (== ',') tagValue
+
+  let (before, after) = Text.break (== ',') (fromMaybe "" tagValue)
       mDuration = readMaybe (Text.unpack before)
       title = Text.drop 1 after
+
   duration <- mDuration
   return (duration, title)
 
@@ -87,13 +89,13 @@ recoverEXTINF mDuration mTitle = do
   duration <- mDuration
   return Tag
     { tagName = "#EXTINF"
-    , tagValue = Text.pack (show duration) <> "," <> F.fold mTitle
+    , tagValue = Just (Text.pack (show duration) <> "," <> F.fold mTitle)
     }
 
 recoverEXT_X_PROGRAM_DATETIME :: ZonedTime -> Tag
 recoverEXT_X_PROGRAM_DATETIME zt = Tag
   { tagName = "#EXT-X-PROGRAM-DATE-TIME"
-  , tagValue = Text.pack (iso8601Show zt)
+  , tagValue = Just (Text.pack (iso8601Show zt))
   }
 
 overrideTags :: [Tag] -> [Tag] -> [Tag]
