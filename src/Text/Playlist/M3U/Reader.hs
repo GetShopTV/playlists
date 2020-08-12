@@ -72,10 +72,12 @@ tagParser = do
   tagStr <- decodeUtf8 <$> Atto.takeTill isEOL
   let (name, val) = Text.break (== ':') tagStr
       tagName = TagName ("#EXT" <> name)
-      tagValue = Text.drop 1 val
+      tagValue = isEmpty (Text.drop 1 val)
       tag = Tag{..}
   Atto8.skipSpace
   return tag
+  where
+    isEmpty x = if Text.null x then Nothing else Just x
 
 trackParser :: Parser Track
 trackParser = do
